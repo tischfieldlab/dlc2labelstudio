@@ -21,12 +21,13 @@ setup(
     install_requires=[
         'click',
         'h5py',
-        'ruamel.yaml',
-        'tqdm',
         'label-studio-sdk',
-        'seaborn',
+        'numpy',
         'pandas',
-        'tables'
+        'ruamel.yaml',
+        'seaborn',
+        'tables',
+        'tqdm',
     ],
     extras_require={
         'dev': [
