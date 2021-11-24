@@ -43,6 +43,10 @@ The following will occur:
 dlc2labelstudio import-dlc-project --key <access-token> /path/to/DLC/project/root
 ```
 
+Another case is that since you originally imported your DLC data to Label Studio you have extracted new frames in DLC. To import these new images into label studio, we offer the `--update-project <project-id>` parameter for the `import-dlc-project` command. If this option is passed, a new label studio project will not be created and rather the existing label studio project will be used. Additionally, under this mode the existing images in the label studio project will be scanned and only image in the DLC project, but not in the label studio project will be added to the existing label studio project.
+
+Finally, you may use the `--filter <pattern>` option to filter the images discovered in the DLC project. You may specify this option multiple times, for example `--filter <pattern_1> --filter <pattern_2>`. The patterns can support shell-style wildcards such as `*` (matches everything), `?` (matches a single character), `[seq]` (matches any character in seq), and `[!seq]` (matches any character not in seq). Internally, we use the python function [`fnmatch.fnmatch()`](https://docs.python.org/3/library/fnmatch.html#fnmatch.fnmatch).
+
 ## Export LS annotations to DLC
 This command will pull annotations from the Label Studio project and save them in a format compatible with DLC.
 

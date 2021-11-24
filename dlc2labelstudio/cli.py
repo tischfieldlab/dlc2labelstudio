@@ -28,19 +28,33 @@ def cli():
 
 @cli.command(name='import-dlc-project', help="Import DLC data into Label Studio")
 @click.argument('dlc-project-dir', type=click.Path(exists=True, file_okay=False))
+@click.option('--update-project', default=None, type=int, help='Perform a differential update between DLC and a label studio project.')
+@click.option('--filter', default=None, multiple=True, help='Limit importing of images with filename matching a pattern')
 @click.option('--endpoint', default='http://labelstudio.hginj.rutgers.edu/', help='URL to Label Studio instance')
 @click.option('--key', required=True, help='Your personal API key')
-def import_dlc_project(dlc_project_dir, endpoint, key):
+def import_dlc_project(dlc_project_dir, update_project, filter, endpoint, key):
     print()
 
     dlc_config = read_yaml(os.path.join(dlc_project_dir, 'config.yaml'))
 
     client = create_client(url=endpoint, api_key=key)
-    label_config = create_label_config(dlc_config)
-    project = create_project(client, dlc_config, label_config)
-    uploaded_files = import_data(project, dlc_config)
 
-    upload_manifest = os.path.join(dlc_config['project_path'], 'label-studio-tasks.yaml')
+    if update_project is None:
+        label_config = create_label_config(dlc_config)
+        project = create_project(client, dlc_config, label_config)
+    else:
+        project = fetch_project(client, update_project)
+        print(f'Found label studio project "{project.title}" (id={project.id})\n')
+
+    if len(filter) <= 0:
+        filter = None
+
+    uploaded_files = import_data(project, dlc_config, update=(update_project is not None), filter=filter)
+
+    upload_manifest = os.path.join(dlc_config['project_path'], f'label-studio-tasks-project-{project.id}.yaml')
+    if update_project is not None:
+        prev_uploaded_files = read_yaml(upload_manifest)
+        uploaded_files = prev_uploaded_files + uploaded_files
     write_yaml(upload_manifest, uploaded_files)
 
 
@@ -50,11 +64,13 @@ def import_dlc_project(dlc_project_dir, endpoint, key):
 @click.option('--endpoint', default='http://labelstudio.hginj.rutgers.edu/', help='URL to Label Studio instance')
 @click.option('--key', required=True, help='Your personal API key')
 def export_ls_project(dlc_project_dir, ls_project_id, endpoint, key):
+    print()
 
     dlc_config = read_yaml(os.path.join(dlc_project_dir, 'config.yaml'))
     client = create_client(url=endpoint, api_key=key)
     project = fetch_project(client, ls_project_id)
     tasks = export_tasks(project, export_type='JSON')
+    print(f'Found {len(tasks)} in label studio project "{project.title}" (id={project.id})')
     convert_ls_annot_to_dlc(tasks, dlc_config)
 
 

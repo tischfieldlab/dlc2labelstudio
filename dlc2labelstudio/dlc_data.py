@@ -1,3 +1,4 @@
+import fnmatch
 import glob
 import math
 import os
@@ -23,6 +24,27 @@ def collect_dataset(base_dir: str) -> List[str]:
     items = glob.glob(search, recursive=True)
     #items = items[:10] # limit size for debug testing
     return items
+
+
+def filter_dataset(dataset: List[str], filters: List[str]) -> List[str]:
+    ''' Filter a list of filenames matching filters
+
+    A filename only needs to match at least one filter to be included in the output
+
+    Parameters:
+    dataset (List[str]): List of filenames to filter
+    filters (List[str]): List of filters to apply
+
+    Returns:
+    List[str]: List of filenames matching at least one filter
+    '''
+    out = []
+    for item in dataset:
+        for filter in filters:
+            if fnmatch.fnmatch(item, filter):
+                out.append(item)
+                break
+    return out
 
 
 def load_dlc_annotations_for_image(dlc_config: dict, image_path: str) -> Union[dict, None]:

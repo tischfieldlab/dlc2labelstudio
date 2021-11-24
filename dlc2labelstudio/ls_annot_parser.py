@@ -6,7 +6,7 @@ def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
     ''' Read annotations from json file output by labelstudio (coco-ish) format
 
     Parameters:
-    annot_file (string): path to the annotation json file
+    annotations (List[dict]): List of label studio task dicts
     keypoint_names (List[str]): list of the keypoint names, in the order desired. If None, ignore keypoints
     mask_format (MaskFormat): 'polygon'|'bitmask', format of the masks to output
     rescale (float): instensity rescaling to apply (by dataset mapper) to image when loading
@@ -109,3 +109,16 @@ def sort_keypoints(keypoint_order: List[str], keypoints: dict):
             #print('missing keypoint {} in {}'.format(kp, entry['id']))
             annot_keypoints.extend([math.nan, math.nan, math.nan])
     return annot_keypoints
+
+
+def pick_filenames_from_tasks(tasks: List[dict]) -> List[str]:
+    ''' Given Label Studio task list, pick and return a list of filenames
+
+    Parameters:
+    tasks (List[dict]): List of label studio task dicts
+
+    Returns:
+    List[str] - List of filenames from tasks
+    '''
+    annot = read_annotations(tasks)
+    return [a['file_name'] for a in annot]
