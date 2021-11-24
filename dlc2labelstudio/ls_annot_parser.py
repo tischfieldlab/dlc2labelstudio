@@ -1,25 +1,5 @@
-
-
-
-from typing import List, Match, Optional, Sequence, TypedDict, Union
 import math
-
-""" class Annotation(TypedDict):
-    bbox: Sequence[float]
-    bbox_mode: BoxMode
-    category_id: int
-    segmentation: Union[Sequence[Sequence[float]], dict]
-    keypoints: Sequence[float]
-
-
-class DataItemBase(TypedDict):
-    file_name: str
-    width: int
-    height: int
-    image_id: str
-    rescale_intensity: float
-    annotations: Sequence[Annotation] """
-
+from typing import List, Optional
 
 
 def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
@@ -55,6 +35,8 @@ def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
 
 
 def get_annotation_from_entry(entry: dict, key: str='annotations', keypoint_names: Optional[List[str]]=None) -> dict:
+    ''' Parse annotations from an entry
+    '''
     annot = {}
     kpts = {}
 
@@ -80,8 +62,11 @@ def get_annotation_from_entry(entry: dict, key: str='annotations', keypoint_name
 
     return {
         'file_name': get_image_path(entry),
-        'width': rslt['original_width'],
-        'height': rslt['original_height'],
+        # ignore these here.
+        # they can break if we do not have results, 
+        # and we do not need them since we are not strict COCO format
+        #'width': rslt['original_width'],
+        #'height': rslt['original_height'],
         'image_id': entry['id'],
         'annotations': [annot],
     }
@@ -97,6 +82,7 @@ def get_keypoint_data(entry: dict) -> dict:
             'v': 2
         }
     }
+
 
 def get_image_path(entry: dict) -> str:
     ''' Extract image file path from an annotation entry
