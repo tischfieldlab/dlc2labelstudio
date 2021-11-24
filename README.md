@@ -15,8 +15,8 @@ conda activate dlc2labelstudio
 ## Install this repo
 For *production* usage:
 ```
-pip install git+https://github.com/tischfieldlab/dlc2labelstudio.git     # if you like to use git over https
-pip install git+ssh://git@github.com/tischfieldlab/dlc2labelstudio.git   # if you like to use git over ssh
+pip install git+https://github.com/tischfieldlab/dlc2labelstudio.git   # if you like to use git over https
+pip install git+ssh://git@github.com/tischfieldlab/dlc2labelstudio.git # if you like to use git over ssh
 ```
 
 OR for *development* usage:
