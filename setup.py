@@ -20,6 +20,7 @@ setup(
     license='MIT License',
     install_requires=[
         'click',
+        'click-option-group',
         'h5py',
         'label-studio-sdk',
         'numpy',

@@ -3,6 +3,8 @@ from typing import List, Tuple
 from label_studio_sdk import Client
 from label_studio_sdk.project import Project
 
+from dlc2labelstudio.label_config import create_label_config
+
 
 def create_client(url: str, api_key: str) -> Client:
     ''' Create a label studio client
@@ -19,23 +21,40 @@ def create_client(url: str, api_key: str) -> Client:
     return ls
 
 
-def create_project(client: Client, dlc_config: dict, label_config: str) -> Project:
-    ''' Create a new project within Label Studio
+def create_project_from_dlc(client: Client, dlc_config: dict) -> Project:
+    ''' Create a new project within Label Studio based on a label studio configuration
 
     The project will be named based on the `Task` key from `dlc_config`.
     A label_config will also be added to the project.
 
     Parameters:
     client (Client): label studio client object
-    dlc_config (dict): configuration from DLC project
+    title (str): title of the project
+
+    Returns:
+    Project - the newly created project1
+    '''
+    label_config = create_label_config(dlc_config)
+    return create_project(client, title=dlc_config['Task'], label_config=label_config)
+
+
+def create_project(client: Client, title: str, label_config: str) -> Project:
+    ''' Create a new project within Label Studio
+
+    The project will be named using `title` and a labeling configuration
+    will be added from `label_config`.
+
+    Parameters:
+    client (Client): label studio client object
+    title (str): title of the project
     label_config (str): a labeling configuration to add to the project
 
     Returns:
     Project - the newly created project1
     '''
-    print(f"Creating LS project named \"{dlc_config['Task']}\"")
+    print(f"Creating LS project named \"{title}\"")
     project = client.start_project(
-        title=dlc_config['Task'],
+        title=title,
         label_config=label_config
     )
     print(f" -> {project.get_url(f'/projects/{project.id}')}\n")

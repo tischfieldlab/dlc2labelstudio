@@ -12,7 +12,7 @@ from dlc2labelstudio.ls_client import (add_task_to_project, export_tasks,
                                        get_current_user_info, upload_data_file)
 
 
-def import_data(project: Project, dlc_config: dict, update: bool=False, filter: Optional[List[str]]=None) -> List[dict]:
+def import_dlc_data(project: Project, dlc_config: dict, update: bool=False, filter: Optional[List[str]]=None) -> List[dict]:
     ''' Import DLC project data into a label studio project
 
     Parameters:
@@ -88,3 +88,67 @@ def import_data(project: Project, dlc_config: dict, update: bool=False, filter: 
         add_task_to_project(project, task)
 
     return uploads
+
+
+def import_generic_ls_tasks(project: Project, tasks: List[dict]):
+    ''' Import generic tasks in label studio format into an existing project
+
+    Will upload any detected file paths that exist on the current machine from the task,
+    and then import the task definition.
+
+    Parameters:
+    project (Project): a label studio project instance
+    tasks (List[dict]): list of task definitions
+    '''
+    uploads = []
+    for task in tqdm.tqdm(tasks, desc='uploading tasks'):
+
+        uploadable_files = get_files_from_task_data(task)
+        for fup in tqdm.tqdm(uploadable_files, desc='uploading files'):
+            _, up_deets = upload_data_file(project, fup)
+            up_deets['original_file'] = fup
+            uploads.append(up_deets)
+            task['data'] = replace_dict_values(task['data'], fup, f"/data/{up_deets['file']}")
+
+        add_task_to_project(project, task)
+
+    return uploads
+
+
+def get_files_from_task_data(task: dict):
+    ''' Find files in task data
+
+    Filters out duplicates and ensures files exist on the file system
+
+    Parameters:
+    task (dict): dict containing a task definition, assumed to have a `data` key
+
+    Returns:
+    List[str] - paths that look like files
+    '''
+    files = []
+    for k, v in task['data']:
+        if isinstance(v, str):
+            files.append(v)
+        elif isinstance(v, list):
+            files.extend(v)
+        else:
+            raise ValueError(f'Warning: expected str or list[str] in task data, not {type(v)}!')
+
+    files = list(set(files))
+    files = list(filter(lambda f: os.path.exists(f), files))
+    return files
+
+
+def replace_dict_values(data: dict, search: str, replace: str) -> dict:
+    for k, v in data.items():
+        if isinstance(v, str) and v == search:
+            data[k] = replace
+        elif isinstance(v, list):
+            for vi, val in enumerate(v):
+                if val == search:
+                    data[k][vi] = replace
+        elif isinstance(v, dict):
+            data[k] = replace_dict_values(v, search, replace)
+
+    return data

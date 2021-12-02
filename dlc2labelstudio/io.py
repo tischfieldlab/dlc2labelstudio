@@ -1,5 +1,7 @@
+import json
 import os
 import shutil
+from typing import List
 
 import cv2
 import numpy as np
@@ -46,6 +48,16 @@ def write_yaml(yaml_file: str, data: dict) -> None:
         yml = yaml.YAML(typ='safe')
         yml.default_flow_style = False
         yml.dump(data, f)
+
+
+def read_label_config(path: str) -> str:
+    with open(path, 'r') as f:
+        return f.read()
+
+
+def read_ls_tasks(path: str) -> List[dict]:
+    with open(path, 'r') as f:
+        return json.load(f)
 
 
 def backup_existing_file(origional_path: str) -> str:
