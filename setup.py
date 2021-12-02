@@ -37,7 +37,7 @@ setup(
             'pytest-cov'
         ]
     },
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     packages=find_packages(),
     include_package_data=True,
     entry_points={
