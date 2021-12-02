@@ -85,11 +85,14 @@ def export_ls_project(dlc_project_dir, ls_project_id, endpoint, key):
 @click.argument('output', type=click.Path())
 def merge_ls_annotations(ls_annotation_file, output):
     merged = []
-    for ls_file in tqdm.tqdm(ls_annotation_file, desc='Annotation files'):
-        merged.extend(read_ls_tasks(ls_file))
+    for ls_file in tqdm.tqdm(ls_annotation_file, desc='Annotation files', leave=False):
+        tasks = read_ls_tasks(ls_file)
+        tqdm.tqdm.write(f'{len(tasks)} tasks found in "{ls_file}"')
+        merged.extend(tasks)
 
     with open(output, 'w') as f:
-        json.dump(merged, f)
+        tqdm.tqdm.write(f'Writing {len(merged)} merged tasks to "{output}"')
+        json.dump(merged, f, indent='\t')
 
 
 @cli.command(name='import-ls-tasks', help="Import (generic) tasks into label studio")
@@ -112,7 +115,7 @@ def import_ls_tasks(tasks, update_project, new_project, label_config, endpoint, 
         print(f'Found label studio project "{project.title}" (id={project.id})\n')
 
     all_tasks = []
-    for task_file in tqdm.tqdm(tasks, desc='Task Files'):
+    for task_file in tqdm.tqdm(tasks, desc='Reading Task Files', leave=False):
         all_tasks.extend(read_ls_tasks(task_file))
 
     uploaded_files = import_generic_ls_tasks(project, all_tasks)

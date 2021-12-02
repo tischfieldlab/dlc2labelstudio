@@ -101,10 +101,10 @@ def import_generic_ls_tasks(project: Project, tasks: List[dict]):
     tasks (List[dict]): list of task definitions
     '''
     uploads = []
-    for task in tqdm.tqdm(tasks, desc='uploading tasks'):
+    for task in tqdm.tqdm(tasks, desc='Importing Tasks'):
 
         uploadable_files = get_files_from_task_data(task)
-        for fup in tqdm.tqdm(uploadable_files, desc='uploading files'):
+        for fup in tqdm.tqdm(uploadable_files, desc='Uploading Files', leave=False):
             _, up_deets = upload_data_file(project, fup)
             up_deets['original_file'] = fup
             uploads.append(up_deets)
@@ -127,7 +127,7 @@ def get_files_from_task_data(task: dict):
     List[str] - paths that look like files
     '''
     files = []
-    for k, v in task['data']:
+    for k, v in task['data'].items():
         if isinstance(v, str):
             files.append(v)
         elif isinstance(v, list):
