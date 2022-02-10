@@ -34,7 +34,8 @@ setup(
         'dev': [
             'pytest',
             'pytest-pep8',
-            'pytest-cov'
+            'pytest-cov',
+            'lxml-stubs'
         ]
     },
     python_requires='>=3.8',
