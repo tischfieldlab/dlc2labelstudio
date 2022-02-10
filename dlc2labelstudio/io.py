@@ -51,11 +51,27 @@ def write_yaml(yaml_file: str, data: dict) -> None:
 
 
 def read_label_config(path: str) -> str:
+    ''' Read a label configuration file
+
+    Parameters:
+    path (str): path to the file containing a label configuration
+
+    Returns:
+    label configuration (str)
+    '''
     with open(path, 'r') as f:
         return f.read()
 
 
 def read_ls_tasks(path: str) -> List[dict]:
+    ''' Read a label studio tasks file (json format)
+
+    Parameters:
+    path (str): path to the file containing a label studio tasks in json format
+
+    Returns:
+    tasks (List[dict])
+    '''
     with open(path, 'r') as f:
         return json.load(f)
 
