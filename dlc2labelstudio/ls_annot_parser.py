@@ -1,5 +1,5 @@
 import math
-from typing import List, Optional
+from typing import Dict, Iterable, List, Optional
 
 
 def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
@@ -34,42 +34,111 @@ def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
     return completions
 
 
-def get_annotation_from_entry(entry: dict, key: str='annotations', keypoint_names: Optional[List[str]]=None) -> dict:
+def get_annotation_from_entry(entry: dict, key: str='annotations', keypoint_names: Optional[List[str]]=None) -> List[dict]:
     ''' Parse annotations from an entry
     '''
-    annot = {}
-    kpts = {}
 
-    for rslt in entry[key][0]['result']:
+    if len(entry[key]) > 1:
+        print('WARNING: Task {}: Multiple annotations found, only taking the first'.format(entry['id']))
 
-        if rslt['type'] == 'keypointlabels':
-            if 'points' in rslt['value']:
-                #print('Skipping unexpected points in keypoint', rslt)
-                continue
-            try:
-                kpts.update(get_keypoint_data(rslt))
-            except:
-                print(rslt['value'])
-                raise
-        #elif rslt['type'] == 'polygonlabels':
-        #    annot.update(get_polygon_data(rslt, mask_format=mask_format))
+    # only parse the first entry result
+    to_parse = entry[key][0]['result']
 
+    individuals = filter_and_index(to_parse, 'rectanglelabels')
+    keypoints = filter_and_index(to_parse, 'keypointlabels')
+    relations = build_relation_map(to_parse)
+    out = []
 
-    if keypoint_names is not None:
-        annot['keypoints'] = sort_keypoints(keypoint_names, kpts)
+    if len(individuals) > 1:
+        # multi animal case:
+        for indv_id, indv in individuals.items():
+            for rel in relations[indv_id]:
+                kpt = keypoints[rel]
+                out.append({
+                    'task_id': entry['id'],
+                    'file_name': get_image_path(entry),
+                    'individual': indv['value']['rectanglelabels'][0],
+                    'bodypart': kpt['value']['keypointlabels'][0],
+                    'x': (kpt['value']['x'] * kpt['original_width']) / 100,
+                    'y': (kpt['value']['y'] * kpt['original_height']) / 100,
+                })
+
     else:
-        annot['keypoints'] = kpts
+        # single animal case
+        for _, kpt in keypoints.items():
+            out.append({
+                'task_id': entry['id'],
+                'file_name': get_image_path(entry),
+                'individual': None,
+                'bodypart': kpt['value']['keypointlabels'][0],
+                'x': (kpt['value']['x'] * kpt['original_width']) / 100,
+                'y': (kpt['value']['y'] * kpt['original_height']) / 100,
+            })
 
-    return {
-        'file_name': get_image_path(entry),
-        # ignore these here.
-        # they can break if we do not have results, 
-        # and we do not need them since we are not strict COCO format
-        #'width': rslt['original_width'],
-        #'height': rslt['original_height'],
-        'image_id': entry['id'],
-        'annotations': [annot],
-    }
+    return out
+
+    # for rslt in to_parse:
+
+    #     if rslt['type'] == 'keypointlabels':
+    #         if 'points' in rslt['value']:
+    #             #print('Skipping unexpected points in keypoint', rslt)
+    #             continue
+    #         try:
+    #             kdata = get_keypoint_data(rslt)
+    #             kname = list(kdata.keys())[0]
+    #             if kname in kpts:
+    #                 print('WARNING: Task {}: Keypoint "{}" has already been parsed, replacing value'.format(entry['id'], kname))
+    #             kpts.update(kdata)
+    #         except:
+    #             print(rslt['value'])
+    #             raise
+    #     elif rslt['type'] == 'rectanglelabels':
+    #         # parse rectangle labels
+    #         pass
+
+    #     elif rslt['type'] == 'relation':
+    #         # parse relations
+    #         pass
+
+    #     #elif rslt['type'] == 'polygonlabels':
+    #     #    annot.update(get_polygon_data(rslt, mask_format=mask_format))
+
+
+    # if keypoint_names is not None:
+    #     annot['keypoints'] = sort_keypoints(keypoint_names, kpts)
+    # else:
+    #     annot['keypoints'] = kpts
+
+    # return {
+    #     'file_name': get_image_path(entry),
+    #     # ignore these here.
+    #     # they can break if we do not have results,
+    #     # and we do not need them since we are not strict COCO format
+    #     #'width': rslt['original_width'],
+    #     #'height': rslt['original_height'],
+    #     'image_id': entry['id'],
+    #     'annotations': [annot],
+    # }
+
+
+def filter_and_index(annotations: Iterable[dict], type: str) -> Dict[str, dict]:
+    filtered = list(filter(lambda d: d['type'] == type, annotations))
+    indexed = { item['id']: item for item in filtered }
+    return indexed
+
+
+def build_relation_map(annotations: Iterable[dict]) -> Dict[str, List[dict]]:
+    relations = list(filter(lambda d: d['type'] == 'relation', annotations))
+    relmap = {}
+    for rel in relations:
+        if rel['from_id'] not in relmap:
+            relmap[rel['from_id']] = []
+        relmap[rel['from_id']].append(rel['to_id'])
+
+        if rel['to_id'] not in relmap:
+            relmap[rel['to_id']] = []
+        relmap[rel['to_id']].append(rel['from_id'])
+    return relmap
 
 
 def get_keypoint_data(entry: dict) -> dict:

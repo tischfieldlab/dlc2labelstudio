@@ -3,6 +3,8 @@ from lxml import etree
 
 import seaborn as sns
 
+from dlc2labelstudio.dlc_data import is_multianimal
+
 
 def create_label_config(dlc_config: dict, palette: str='bright') -> str:
     ''' Create a labeling configuration based on DLC configuration
@@ -19,7 +21,7 @@ def create_label_config(dlc_config: dict, palette: str='bright') -> str:
 
     labeling_root = etree.SubElement(root, 'View', style='flex: 10%; margin-left: 1em')
 
-    if 'multianimalproject' in dlc_config and dlc_config['multianimalproject']:
+    if is_multianimal(dlc_config):
         labeling_root.extend(create_multianimal_bodyparts_labeling_config(dlc_config))
 
     else:
