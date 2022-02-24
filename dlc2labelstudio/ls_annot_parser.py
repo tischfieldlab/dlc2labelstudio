@@ -34,6 +34,13 @@ def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
     return completions
 
 
+def upgrade_task_definition(task: dict) -> dict:
+    if 'completions' in task:
+        task['annotations'] = task['completions']
+        task.pop('completions', None)
+    return task
+
+
 def get_annotation_from_entry(entry: dict, key: str='annotations', keypoint_names: Optional[List[str]]=None) -> dict:
     ''' Parse annotations from an entry
     '''
