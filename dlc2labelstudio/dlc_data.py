@@ -11,7 +11,16 @@ import tqdm
 from dlc2labelstudio.io import read_image
 
 def is_multianimal(dlc_config: dict) -> bool:
+    ''' Returns True if `dlc_config` is configured for a multi-animal project, otherwise False
+
+    Parameters:
+    dlc_config (dict): DLC project configuration data
+
+    Returns:
+    bool: True if the config is setup for multi-animal projects, otherwise false
+    '''
     return 'multianimalproject' in dlc_config and dlc_config['multianimalproject']
+
 
 def collect_dataset(base_dir: str) -> List[str]:
     ''' Find images in a DLC dataset
@@ -42,8 +51,8 @@ def filter_dataset(dataset: List[str], filters: List[str]) -> List[str]:
     '''
     out = []
     for item in dataset:
-        for filter in filters:
-            if fnmatch.fnmatch(item, filter):
+        for pattern in filters:
+            if fnmatch.fnmatch(item, pattern):
                 out.append(item)
                 break
     return out
@@ -93,7 +102,7 @@ def load_dlc_annotations_for_image(dlc_config: dict, image_path: str) -> Union[d
                         "width": width,
                         "height": height,
                         "rotation": 0,
-                        "rectanglelabels": [ indv ]
+                        "rectanglelabels": [indv]
                     },
                     "id": indv_id,
                     "from_name": "individuals",
@@ -116,7 +125,7 @@ def load_dlc_annotations_for_image(dlc_config: dict, image_path: str) -> Union[d
                     "x": x_pos / width * 100,
                     "y": y_pos / height * 100,
                     "width": 0.2666,
-                    "keypointlabels": [ idx[-1] ]
+                    "keypointlabels": [idx[-1]]
                 },
                 "from_name": "keypoint-label",
                 "to_name": "image",

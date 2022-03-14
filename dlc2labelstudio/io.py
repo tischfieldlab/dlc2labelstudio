@@ -32,9 +32,9 @@ def read_yaml(yaml_file: str) -> dict:
     Returns:
     return_dict (dict): dict of yaml contents
     '''
-    with open(yaml_file, 'r') as f:
+    with open(yaml_file, 'r') as yfile:
         yml = yaml.YAML(typ='safe')
-        return yml.load(f)
+        return yml.load(yfile)
 
 
 def write_yaml(yaml_file: str, data: dict) -> None:
@@ -44,10 +44,10 @@ def write_yaml(yaml_file: str, data: dict) -> None:
     yaml_file (str): path to yaml file
     data (dict): dict of data to write to `yaml_file`
     '''
-    with open(yaml_file, 'w') as f:
+    with open(yaml_file, 'w') as yfile:
         yml = yaml.YAML(typ='safe')
         yml.default_flow_style = False
-        yml.dump(data, f)
+        yml.dump(data, yfile)
 
 
 def read_label_config(path: str) -> str:
@@ -59,8 +59,8 @@ def read_label_config(path: str) -> str:
     Returns:
     label configuration (str)
     '''
-    with open(path, 'r') as f:
-        return f.read()
+    with open(path, 'r') as label_config:
+        return label_config.read()
 
 
 def read_ls_tasks(path: str) -> List[dict]:
@@ -72,8 +72,8 @@ def read_ls_tasks(path: str) -> List[dict]:
     Returns:
     tasks (List[dict])
     '''
-    with open(path, 'r') as f:
-        return json.load(f)
+    with open(path, 'r') as task_file:
+        return json.load(task_file)
 
 
 def backup_existing_file(origional_path: str) -> str:

@@ -16,9 +16,9 @@ def create_client(url: str, api_key: str) -> Client:
     Returns:
     Client - a label studio SDK client
     '''
-    ls = Client(url=url, api_key=api_key)
-    ls.check_connection()
-    return ls
+    ls_client = Client(url=url, api_key=api_key)
+    ls_client.check_connection()
+    return ls_client
 
 
 def create_project_from_dlc(client: Client, dlc_config: dict) -> Project:
@@ -80,9 +80,10 @@ def export_tasks(project: Project, export_type='JSON') -> List[dict]:
     https://labelstud.io/api#operation/api_projects_export_read
 
     Parameters:
-    export_type (string): format of the task export. 
+    export_type (string): format of the task export.
     Default export_type is JSON.
-    Specify another format type as referenced in <a href="https://github.com/heartexlabs/label-studio-converter/blob/master/label_studio_converter/converter.py#L32">
+    Specify another format type as referenced in
+    <a href="https://github.com/heartexlabs/label-studio-converter/blob/master/label_studio_converter/converter.py#L32">
     the Label Studio converter code</a>.
 
     Returns
@@ -125,11 +126,11 @@ def upload_data_file(project: Project, file: str) -> Tuple[dict, dict]:
     Returns:
     Tuple[dict, dict] - tuple of (upload_response, upload_info)
     '''
-    with open(file, mode='rb') as f:
+    with open(file, mode='rb') as upload_file:
         response = project.make_request(
             method='POST',
             url=f'/api/projects/{project.id}/import',
-            files={'file': f},
+            files={'file': upload_file},
             params={'commit_to_project': False}
         )
         jdata = response.json()
