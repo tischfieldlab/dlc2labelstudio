@@ -40,41 +40,44 @@ def get_annotation_from_entry(entry: dict, key: str='annotations') -> List[dict]
     if len(entry[key]) > 1:
         print('WARNING: Task {}: Multiple annotations found, only taking the first'.format(entry['id']))
 
-    # only parse the first entry result
-    to_parse = entry[key][0]['result']
+    try:
+        # only parse the first entry result
+        to_parse = entry[key][0]['result']
 
-    individuals = filter_and_index(to_parse, 'rectanglelabels')
-    keypoints = filter_and_index(to_parse, 'keypointlabels')
-    relations = build_relation_map(to_parse)
-    out = []
+        individuals = filter_and_index(to_parse, 'rectanglelabels')
+        keypoints = filter_and_index(to_parse, 'keypointlabels')
+        relations = build_relation_map(to_parse)
+        out = []
 
-    if len(individuals) > 0:
-        # multi animal case:
-        for indv_id, indv in individuals.items():
-            for rel in relations[indv_id]:
-                kpt = keypoints[rel]
+        if len(individuals) > 0:
+            # multi animal case:
+            for indv_id, indv in individuals.items():
+                for rel in relations[indv_id]:
+                    kpt = keypoints[rel]
+                    out.append({
+                        'task_id': entry['id'],
+                        'file_name': get_image_path(entry),
+                        'individual': indv['value']['rectanglelabels'][0],
+                        'bodypart': kpt['value']['keypointlabels'][0],
+                        'x': (kpt['value']['x'] * kpt['original_width']) / 100,
+                        'y': (kpt['value']['y'] * kpt['original_height']) / 100,
+                    })
+
+        else:
+            # single animal case
+            for _, kpt in keypoints.items():
                 out.append({
                     'task_id': entry['id'],
                     'file_name': get_image_path(entry),
-                    'individual': indv['value']['rectanglelabels'][0],
+                    'individual': None,
                     'bodypart': kpt['value']['keypointlabels'][0],
                     'x': (kpt['value']['x'] * kpt['original_width']) / 100,
                     'y': (kpt['value']['y'] * kpt['original_height']) / 100,
                 })
 
-    else:
-        # single animal case
-        for _, kpt in keypoints.items():
-            out.append({
-                'task_id': entry['id'],
-                'file_name': get_image_path(entry),
-                'individual': None,
-                'bodypart': kpt['value']['keypointlabels'][0],
-                'x': (kpt['value']['x'] * kpt['original_width']) / 100,
-                'y': (kpt['value']['y'] * kpt['original_height']) / 100,
-            })
-
-    return out
+        return out
+    except Exception as excpt:
+        raise RuntimeError('While working on Task #{}, encountered the following error:'.format(entry['id'])) from excpt
 
 
 def filter_and_index(annotations: Iterable[dict], annot_type: str) -> Dict[str, dict]:
