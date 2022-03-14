@@ -90,6 +90,17 @@ def read_ls_tasks(path: str) -> List[dict]:
         return json.load(task_file)
 
 
+def write_ls_tasks(path: str, tasks: List[dict]) -> None:
+    ''' Write label-studio tasks to a file (json format)
+
+    Parameters:
+    path (str): path where the `tasks` should be written
+    tasks (List[dict]): label-studio tasks to write
+    '''
+    with open(path, 'w') as out_file:
+        json.dump(tasks, out_file, indent='\t')
+
+
 def backup_existing_file(origional_path: str) -> str:
     ''' Backup a file, ensuring no filename clashes
 

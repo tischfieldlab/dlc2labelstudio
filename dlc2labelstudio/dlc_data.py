@@ -147,4 +147,3 @@ def load_dlc_annotations_for_image(dlc_config: dict, image_path: str) -> Union[d
         }
     except:
         tqdm.tqdm.write(traceback.format_exc())
-        None
