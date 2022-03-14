@@ -141,10 +141,9 @@ def get_files_from_task_data(task: dict):
 
 
 def replace_dict_values(data: dict, search: str, replace: str) -> dict:
-    ''' Recursively search values in the dict `data` for `search` and replace with `replace`
+    ''' Recursively search values in the dict `data` for `search` and replace with `replace`.
+    We search string values and list values in dict.
 
-    We search string values and list values in dict
-    
     Parameters:
     data (dict): dictionary to search
     search (str): string to look for
