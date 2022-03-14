@@ -13,7 +13,7 @@ setup(
         'h5py',
         'label-studio-sdk',
         'numpy',
-        'opencv-python'
+        'opencv-python',
         'pandas',
         'ruamel.yaml',
         'seaborn',
