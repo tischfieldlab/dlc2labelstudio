@@ -1,8 +1,9 @@
-import math
+import itertools
 import os
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
+from dlc2labelstudio.dlc_data import is_multianimal
 
 from dlc2labelstudio.io import backup_existing_file
 from dlc2labelstudio.ls_annot_parser import read_annotations
@@ -81,6 +82,35 @@ def save_dlc_annots(annotations: pd.DataFrame, dlc_config: dict, group: Optional
     )
 
 
+def make_index_from_dlc_config(dlc_config: dict) -> pd.MultiIndex:
+    ''' Given a DLC configuration, prepare a pandas multi-index
+
+    Parameters:
+    dlc_config (dict): DLC project configuration data
+    '''
+    if is_multianimal(dlc_config):
+        cols = []
+        for individual in dlc_config['individuals']:
+            for mabp in dlc_config['multianimalbodyparts']:
+                cols.append((dlc_config['scorer'], individual, mabp, 'x'))
+                cols.append((dlc_config['scorer'], individual, mabp, 'y'))
+        for unbp in dlc_config['uniquebodyparts']:
+            cols.append((dlc_config['scorer'], 'single', unbp, 'x'))
+            cols.append((dlc_config['scorer'], 'single', unbp, 'y'))
+
+        return pd.MultiIndex.from_tuples(cols, names=('scorer', 'individuals', 'bodyparts', 'coords'))
+
+    else:
+        return pd.MultiIndex.from_product(
+            [
+                [dlc_config['scorer']],
+                dlc_config['bodyparts'],
+                ['x', 'y']
+            ],
+            names=['scorer', 'bodyparts', 'coords'])
+
+
+
 def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_config: dict) -> pd.DataFrame:
     ''' Convert "intermediate-style" annotations to DLC-style DataFrame
 
@@ -91,30 +121,28 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
     Returns:
     pd.DataFrame - dataframe of annotation data in DLC format
     '''
-    col_idx = pd.MultiIndex.from_product(
-        [
-            [dlc_config['scorer']],
-            dlc_config['bodyparts'],
-            ['x', 'y']
-        ],
-        names=['scorer', 'bodyparts', 'coords'])
+    is_ma = is_multianimal(dlc_config)
+    col_idx = make_index_from_dlc_config(dlc_config)
     row_idx = []
-    dlc_data = []
+    dlc_data = {idx_val: [] for idx_val in col_idx.values}
 
-    for itm in intermediate_annotations:
-        row_idx.append(itm['file_name'])
-        kpts = itm['annotations'][0]['keypoints']
 
-        row_data = []
-        for bp in dlc_config['bodyparts']:
-            if bp in kpts:
-                row_data.extend([
-                    kpts[bp]['x'],
-                    kpts[bp]['y'],
-                ])
+    keyfunc = lambda a: a['file_name']
+    sorted_annot = sorted(intermediate_annotations, key=keyfunc)
+    for group, annots in itertools.groupby(sorted_annot, key=keyfunc):
+        row_idx.append(group)
+        # fill across the board with None
+        for value in dlc_data.values():
+            value.append(None)
+
+        for annot in annots:
+            if is_ma:
+                key = (dlc_config['scorer'], annot['individual'], annot['bodypart'])
             else:
-                row_data.extend([math.nan, math.nan])
-        dlc_data.append(row_data)
+                key = (dlc_config['scorer'], annot['bodypart'])
+            dlc_data[(*key, 'x')][-1] = annot['x']
+            dlc_data[(*key, 'y')][-1] = annot['y']
+
     dlc_df = pd.DataFrame(dlc_data, index=row_idx, columns=col_idx)
 
     return dlc_df
