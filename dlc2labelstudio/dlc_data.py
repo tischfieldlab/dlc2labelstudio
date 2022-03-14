@@ -145,5 +145,5 @@ def load_dlc_annotations_for_image(dlc_config: dict, image_path: str) -> Union[d
         return {
             'result': out
         }
-    except:
+    except: # pylint: disable=bare-except
         tqdm.tqdm.write(traceback.format_exc())
