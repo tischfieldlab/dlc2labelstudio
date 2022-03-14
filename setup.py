@@ -1,16 +1,5 @@
-import subprocess
-import sys
-
 from setuptools import find_packages, setup
 
-
-def install(package):
-    subprocess.call([sys.executable, "-m", "pip", "install", package])
-
-try:
-    import cv2  # noqa: F401
-except ImportError:
-    install('opencv-python')
 
 setup(
     name='dlc2labelstudio',
@@ -24,10 +13,11 @@ setup(
         'h5py',
         'label-studio-sdk',
         'numpy',
+        'opencv-python'
         'pandas',
         'ruamel.yaml',
         'seaborn',
-        'tables',
+        'tables==3.6.1',
         'tqdm',
     ],
     extras_require={
@@ -42,6 +32,9 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     entry_points={
-        'console_scripts': ['dlc2labelstudio = dlc2labelstudio.cli:cli'],
+        'console_scripts': [
+            'dlc2ls = dlc2labelstudio.cli:cli',
+            'dlc2labelstudio = dlc2labelstudio.cli:cli'
+        ],
     }
 )
