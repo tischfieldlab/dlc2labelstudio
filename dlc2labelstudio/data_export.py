@@ -24,7 +24,7 @@ def convert_ls_annot_to_dlc(ls_annotations: List[dict], dlc_config: dict, split:
     Union[pd.DataFrame, Dict[str, pd.DataFrame]]: If split is True, will return a dict with string keys of the video name and keys
     as a Dataframe containing annotation data. If split is False, will return a DataFrame with all annotation data.
     '''
-    data = read_annotations(ls_annotations)#keypoint_names=dlc_config['bodyparts']
+    data = read_annotations(ls_annotations)
 
     if split:
         grouped = split_annotations_by_directory(data)
@@ -32,11 +32,13 @@ def convert_ls_annot_to_dlc(ls_annotations: List[dict], dlc_config: dict, split:
         for group, group_data in grouped.items():
             dlc_df = intermediate_annotations_to_dlc(group_data, dlc_config)
             grouped_dlc[group] = dlc_df
-            save_dlc_annots(dlc_df, dlc_config, group)
+            if save:
+                save_dlc_annots(dlc_df, dlc_config, group)
         return grouped_dlc
     else:
         dlc_df = intermediate_annotations_to_dlc(data, dlc_config)
-        save_dlc_annots(dlc_df, dlc_config)
+        if save:
+            save_dlc_annots(dlc_df, dlc_config)
         return dlc_df
 
 
