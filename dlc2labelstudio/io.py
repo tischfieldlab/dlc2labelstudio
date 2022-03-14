@@ -3,10 +3,24 @@ import os
 import shutil
 from typing import List
 
+import click
 import cv2
 import numpy as np
 import numpy.typing as npt
 import ruamel.yaml as yaml
+
+
+def click_monkey_patch_option_show_defaults() -> None:
+    ''' Monkey patch click.core.Option to turn on showing default values.
+    '''
+    orig_init = click.core.Option.__init__
+    def new_init(self, *args, **kwargs):
+        ''' This version of click.core.Option.__init__ will set show default values to True
+        '''
+        orig_init(self, *args, **kwargs)
+        self.show_default = True
+    # end new_init()
+    click.core.Option.__init__ = new_init # type: ignore
 
 
 def read_image(filename: str, dtype: npt.DTypeLike='uint8') -> np.ndarray:
