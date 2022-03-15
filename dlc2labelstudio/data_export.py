@@ -137,7 +137,12 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
 
         for annot in annots:
             if is_ma:
-                key = (dlc_config['scorer'], annot['individual'], annot['bodypart'])
+                if annot['individual'] is None:
+                    # unique bodypart
+                    key = (dlc_config['scorer'], 'single', annot['bodypart'])
+                else:
+                    # multi animal bodypart
+                    key = (dlc_config['scorer'], annot['individual'], annot['bodypart'])
             else:
                 key = (dlc_config['scorer'], annot['bodypart'])
             dlc_data[(*key, 'x')][-1] = annot['x']
