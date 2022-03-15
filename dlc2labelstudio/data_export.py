@@ -160,7 +160,8 @@ def split_annotations_by_directory(intermediate_annotations: List[dict]) -> Dict
     grouped = {}
 
     for annot in intermediate_annotations:
-        group = annot['file_name'].split(os.sep)[1]
+        path, _ = os.path.split(annot['file_name'])
+        _, group = os.path.split(path)
         if group not in grouped:
             grouped[group] = []
         grouped[group].append(annot)
