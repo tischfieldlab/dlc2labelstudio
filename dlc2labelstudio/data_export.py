@@ -26,15 +26,16 @@ def convert_ls_annot_to_dlc(ls_annotations: List[dict], dlc_config: dict, split:
     as a Dataframe containing annotation data. If split is False, will return a DataFrame with all annotation data.
     '''
     data = read_annotations(ls_annotations)
-
     if split:
         grouped = split_annotations_by_directory(data)
         grouped_dlc = {}
+        total_errors = 0
         for group, group_data in grouped.items():
             dlc_df, num_errors = intermediate_annotations_to_dlc(group_data, dlc_config)
+            total_errors += num_errors
             grouped_dlc[group] = dlc_df
 
-        if num_errors > 0:
+        if total_errors > 0:
             print('Several errors were detected while converting results to DLC format. Please correct the problems and try again!')
             return None
 
