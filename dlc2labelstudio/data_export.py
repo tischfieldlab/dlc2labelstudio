@@ -31,15 +31,29 @@ def convert_ls_annot_to_dlc(ls_annotations: List[dict], dlc_config: dict, split:
         grouped = split_annotations_by_directory(data)
         grouped_dlc = {}
         for group, group_data in grouped.items():
-            dlc_df = intermediate_annotations_to_dlc(group_data, dlc_config)
+            dlc_df, num_errors = intermediate_annotations_to_dlc(group_data, dlc_config)
             grouped_dlc[group] = dlc_df
-            if save:
-                save_dlc_annots(dlc_df, dlc_config, group)
+
+        if num_errors > 0:
+            print('Several errors were detected while converting results to DLC format. Please correct the problems and try again!')
+            return None
+
+        # wait till we have all data frames, incase an exception, then save
+        if save:
+            for group, group_df in grouped_dlc.items():
+                save_dlc_annots(group_df, dlc_config, group)
+
         return grouped_dlc
     else:
-        dlc_df = intermediate_annotations_to_dlc(data, dlc_config)
+        dlc_df, num_errors = intermediate_annotations_to_dlc(data, dlc_config)
+
+        if num_errors > 0:
+            print('Several errors were detected while converting results to DLC format. Please correct the problems and try again!')
+            return None
+
         if save:
             save_dlc_annots(dlc_df, dlc_config)
+
         return dlc_df
 
 
@@ -129,6 +143,7 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
 
     keyfunc = lambda a: a['file_name']
     sorted_annot = sorted(intermediate_annotations, key=keyfunc)
+    errors_found = 0
     for group, annots in itertools.groupby(sorted_annot, key=keyfunc):
         row_idx.append(group)
         # fill across the board with None
@@ -145,12 +160,31 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
                     key = (dlc_config['scorer'], annot['individual'], annot['bodypart'])
             else:
                 key = (dlc_config['scorer'], annot['bodypart'])
-            dlc_data[(*key, 'x')][-1] = annot['x']
-            dlc_data[(*key, 'y')][-1] = annot['y']
+            #print(annot['file_name'], key)
+            try:
+                dlc_data[(*key, 'x')][-1] = annot['x']
+                dlc_data[(*key, 'y')][-1] = annot['y']
+            except KeyError:
+                errors_found += 1
+                if annot['bodypart'] in dlc_config['multianimalbodyparts'] and annot['individual'] is None:
+                    rationale = 'bodypart is a multianimal bodypart, but no relationship to an individual was found!'
+                elif annot['bodypart'] in dlc_config['uniquebodyparts'] and annot['individual'] is not None:
+                    rationale = 'bodypart is a unique bodypart and should not have a relationship with an individual, but one was found'
+                else:
+                    rationale = 'Unknown'
+
+                message = 'ERROR! Data seems to violate the DLC annotation schema!\n' \
+                         f' -> Task: {annot["task_id"]}\n' \
+                         f' -> Image: "{annot["file_name"]}"\n' \
+                         f' -> Bodypart: {annot["bodypart"]}\n'
+                if is_ma:
+                    message += f' -> Individual: {annot.get("individual", None)}\n'
+                message += f' -> Rationale: {rationale}\n'
+                print(message)
 
     dlc_df = pd.DataFrame(dlc_data, index=row_idx, columns=col_idx)
 
-    return dlc_df
+    return dlc_df, errors_found
 
 
 def split_annotations_by_directory(intermediate_annotations: List[dict]) -> Dict[str, List[dict]]:
