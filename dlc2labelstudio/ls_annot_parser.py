@@ -62,28 +62,18 @@ def get_annotation_from_entry(entry: dict, key: str='annotations') -> List[dict]
                         'x': (kpt['value']['x'] * kpt['original_width']) / 100,
                         'y': (kpt['value']['y'] * kpt['original_height']) / 100,
                     })
-            # any leftover keypoints should be unique bodyparts
-            for _, kpt in keypoints.items():
-                out.append({
-                    'task_id': entry['id'],
-                    'file_name': get_image_path(entry),
-                    'individual': None, # None indicates a unique bodypart
-                    'bodypart': kpt['value']['keypointlabels'][0],
-                    'x': (kpt['value']['x'] * kpt['original_width']) / 100,
-                    'y': (kpt['value']['y'] * kpt['original_height']) / 100,
-                })
 
-        else:
-            # single animal case
-            for _, kpt in keypoints.items():
-                out.append({
-                    'task_id': entry['id'],
-                    'file_name': get_image_path(entry),
-                    'individual': None,
-                    'bodypart': kpt['value']['keypointlabels'][0],
-                    'x': (kpt['value']['x'] * kpt['original_width']) / 100,
-                    'y': (kpt['value']['y'] * kpt['original_height']) / 100,
-                })
+        # If this is multi-animal, any leftover keypoints should be unique bodyparts, and will be collected here
+        # if single-animal, we only have 'unique bodyparts' [in a way] and the process is identical
+        for _, kpt in keypoints.items():
+            out.append({
+                'task_id': entry['id'],
+                'file_name': get_image_path(entry),
+                'individual': None, # None indicates a unique bodypart
+                'bodypart': kpt['value']['keypointlabels'][0],
+                'x': (kpt['value']['x'] * kpt['original_width']) / 100,
+                'y': (kpt['value']['y'] * kpt['original_height']) / 100,
+            })
 
         return out
     except Exception as excpt:
