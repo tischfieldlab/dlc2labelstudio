@@ -91,8 +91,8 @@ def save_dlc_annots(annotations: pd.DataFrame, dlc_config: dict, group: Optional
 
     annotations.to_hdf(
         h5_dest,
-        "df_with_missing",
-        format="table",
+        key="df_with_missing",
+        format="fixed",
         mode="w"
     )
 
@@ -146,7 +146,7 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
     sorted_annot = sorted(intermediate_annotations, key=keyfunc)
     errors_found = 0
     for group, annots in itertools.groupby(sorted_annot, key=keyfunc):
-        row_idx.append(group)
+        row_idx.append(tuple(group.replace(r'\\', '/').split('/')))
         # fill across the board with None
         for value in dlc_data.values():
             value.append(None)
@@ -183,7 +183,7 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
                 message += f' -> Rationale: {rationale}\n'
                 print(message)
 
-    dlc_df = pd.DataFrame(dlc_data, index=row_idx, columns=col_idx)
+    dlc_df = pd.DataFrame(dlc_data, index=pd.MultiIndex.from_tuples(row_idx), columns=col_idx)
 
     return dlc_df, errors_found
 
