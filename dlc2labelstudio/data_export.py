@@ -2,6 +2,7 @@ import itertools
 import os
 from typing import Dict, List, Optional, Union
 
+import numpy as np
 import pandas as pd
 from dlc2labelstudio.dlc_data import is_multianimal
 
@@ -92,7 +93,6 @@ def save_dlc_annots(annotations: pd.DataFrame, dlc_config: dict, group: Optional
     annotations.to_hdf(
         h5_dest,
         key="df_with_missing",
-        format="fixed",
         mode="w"
     )
 
@@ -149,7 +149,7 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
         row_idx.append(tuple(group.replace(r'\\', '/').split('/')))
         # fill across the board with None
         for value in dlc_data.values():
-            value.append(None)
+            value.append(np.nan)
 
         for annot in annots:
             if is_ma:
@@ -183,7 +183,9 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
                 message += f' -> Rationale: {rationale}\n'
                 print(message)
 
-    dlc_df = pd.DataFrame(dlc_data, index=pd.MultiIndex.from_tuples(row_idx), columns=col_idx)
+    row_index = pd.MultiIndex.from_tuples(row_idx)
+
+    dlc_df = pd.DataFrame(dlc_data, index=row_index, columns=col_idx)
 
     return dlc_df, errors_found
 
