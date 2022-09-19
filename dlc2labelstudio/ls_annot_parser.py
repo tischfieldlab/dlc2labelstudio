@@ -1,8 +1,7 @@
-import math
-from typing import List, Optional
+from typing import Dict, Iterable, List
 
 
-def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
+def read_annotations(annotations: List[dict]) -> List[dict]:
     ''' Read annotations from json file output by labelstudio (coco-ish) format
 
     Parameters:
@@ -12,7 +11,7 @@ def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
     rescale (float): instensity rescaling to apply (by dataset mapper) to image when loading
 
     Returns:
-    Sequence[DataItem] annotations
+    List[DataItem] annotations
     '''
     #if keypoint_names is None:
     #    print("WARNING: Ignoring any keypoint information because `keypoint_names` is None.")
@@ -28,67 +27,95 @@ def read_annotations(annotations: List[dict], keypoint_names: List[str]=None):
         else:
             raise ValueError('Cannot find annotation data for entry!')
 
-        entry_data = get_annotation_from_entry(entry, key=key, keypoint_names=keypoint_names)
-        completions.append(entry_data)
+        entry_data = get_annotation_from_entry(entry, key=key)
+        completions.extend(entry_data)
 
     return completions
 
 
-def upgrade_task_definition(task: dict) -> dict:
-    if 'completions' in task:
-        task['annotations'] = task['completions']
-        task.pop('completions', None)
-    return task
-
-
-def get_annotation_from_entry(entry: dict, key: str='annotations', keypoint_names: Optional[List[str]]=None) -> dict:
+def get_annotation_from_entry(entry: dict, key: str='annotations') -> List[dict]:
     ''' Parse annotations from an entry
     '''
-    annot = {}
-    kpts = {}
 
-    for rslt in entry[key][0]['result']:
+    if len(entry[key]) > 1:
+        print('WARNING: Task {}: Multiple annotations found, only taking the first'.format(entry['id']))
 
-        if rslt['type'] == 'keypointlabels':
-            if 'points' in rslt['value']:
-                #print('Skipping unexpected points in keypoint', rslt)
-                continue
-            try:
-                kpts.update(get_keypoint_data(rslt))
-            except:
-                print(rslt['value'])
-                raise
-        #elif rslt['type'] == 'polygonlabels':
-        #    annot.update(get_polygon_data(rslt, mask_format=mask_format))
+    try:
+        # only parse the first entry result
+        to_parse = entry[key][0]['result']
+
+        individuals = filter_and_index(to_parse, 'rectanglelabels')
+        keypoints = filter_and_index(to_parse, 'keypointlabels')
+        relations = build_relation_map(to_parse)
+        out = []
+
+        if len(individuals) > 0:
+            # multi animal case:
+            for indv_id, indv in individuals.items():
+                for rel in relations[indv_id]:
+                    kpt = keypoints.pop(rel)
+                    out.append({
+                        'task_id': entry['id'],
+                        'file_name': get_image_path(entry),
+                        'individual': indv['value']['rectanglelabels'][0],
+                        'bodypart': kpt['value']['keypointlabels'][0],
+                        'x': (kpt['value']['x'] * kpt['original_width']) / 100,
+                        'y': (kpt['value']['y'] * kpt['original_height']) / 100,
+                    })
+
+        # If this is multi-animal, any leftover keypoints should be unique bodyparts, and will be collected here
+        # if single-animal, we only have 'unique bodyparts' [in a way] and the process is identical
+        for _, kpt in keypoints.items():
+            out.append({
+                'task_id': entry['id'],
+                'file_name': get_image_path(entry),
+                'individual': None, # None indicates a unique bodypart
+                'bodypart': kpt['value']['keypointlabels'][0],
+                'x': (kpt['value']['x'] * kpt['original_width']) / 100,
+                'y': (kpt['value']['y'] * kpt['original_height']) / 100,
+            })
+
+        return out
+    except Exception as excpt:
+        raise RuntimeError('While working on Task #{}, encountered the following error:'.format(entry['id'])) from excpt
 
 
-    if keypoint_names is not None:
-        annot['keypoints'] = sort_keypoints(keypoint_names, kpts)
-    else:
-        annot['keypoints'] = kpts
+def filter_and_index(annotations: Iterable[dict], annot_type: str) -> Dict[str, dict]:
+    ''' Filter annotations based on the type field and index them by ID
 
-    return {
-        'file_name': get_image_path(entry),
-        # ignore these here.
-        # they can break if we do not have results, 
-        # and we do not need them since we are not strict COCO format
-        #'width': rslt['original_width'],
-        #'height': rslt['original_height'],
-        'image_id': entry['id'],
-        'annotations': [annot],
-    }
+    Parameters:
+    annotation (Iterable[dict]): annotations to filter and index
+    annot_type (str): annotation type to filter e.x. 'keypointlabels' or 'rectanglelabels'
 
-
-def get_keypoint_data(entry: dict) -> dict:
-    ''' Extract keypoint data from an annotation entry
+    Returns:
+    Dict[str, dict] - indexed and filtered annotations. Only annotations of type `annot_type`
+    will survive, and annotations are indexed by ID
     '''
-    return {
-        entry['value']['keypointlabels'][0]: {
-            'x': (entry['value']['x'] * entry['original_width']) / 100,
-            'y': (entry['value']['y'] * entry['original_height']) / 100,
-            'v': 2
-        }
-    }
+    filtered = list(filter(lambda d: d['type'] == annot_type, annotations))
+    indexed = {item['id']: item for item in filtered}
+    return indexed
+
+
+def build_relation_map(annotations: Iterable[dict]) -> Dict[str, List[dict]]:
+    ''' Build a two-way relationship map between annotations
+
+    Parameters:
+    annotations (Iterable[dict]): annotations, presumably, containing relation types
+
+    Returns:
+    Dict[str, List[Dict]]: a two way map of relations indexed by `from_id` and `to_id` fields
+    '''
+    relations = list(filter(lambda d: d['type'] == 'relation', annotations))
+    relmap = {}
+    for rel in relations:
+        if rel['from_id'] not in relmap:
+            relmap[rel['from_id']] = []
+        relmap[rel['from_id']].append(rel['to_id'])
+
+        if rel['to_id'] not in relmap:
+            relmap[rel['to_id']] = []
+        relmap[rel['to_id']].append(rel['from_id'])
+    return relmap
 
 
 def get_image_path(entry: dict) -> str:
@@ -102,20 +129,6 @@ def get_image_path(entry: dict) -> str:
         return entry['data']['image']
     elif 'data' in entry and 'depth_image' in entry['data']:
         return entry['data']['depth_image']
-
-
-def sort_keypoints(keypoint_order: List[str], keypoints: dict):
-    ''' Sort `keypoints` to the order specified by `keypoint_order`
-    '''
-    annot_keypoints = []
-    for kp in keypoint_order:
-        if kp in keypoints:
-            k = keypoints[kp]
-            annot_keypoints.extend([k['x'], k['y'], k['v']])
-        else:
-            #print('missing keypoint {} in {}'.format(kp, entry['id']))
-            annot_keypoints.extend([math.nan, math.nan, math.nan])
-    return annot_keypoints
 
 
 def pick_filenames_from_tasks(tasks: List[dict]) -> List[str]:

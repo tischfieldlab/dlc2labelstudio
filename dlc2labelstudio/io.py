@@ -3,10 +3,24 @@ import os
 import shutil
 from typing import List
 
+import click
 import cv2
 import numpy as np
 import numpy.typing as npt
 import ruamel.yaml as yaml
+
+
+def click_monkey_patch_option_show_defaults() -> None:
+    ''' Monkey patch click.core.Option to turn on showing default values.
+    '''
+    orig_init = click.core.Option.__init__
+    def new_init(self, *args, **kwargs):
+        ''' This version of click.core.Option.__init__ will set show default values to True
+        '''
+        orig_init(self, *args, **kwargs)
+        self.show_default = True
+    # end new_init()
+    click.core.Option.__init__ = new_init # type: ignore
 
 
 def read_image(filename: str, dtype: npt.DTypeLike='uint8') -> np.ndarray:
@@ -32,9 +46,9 @@ def read_yaml(yaml_file: str) -> dict:
     Returns:
     return_dict (dict): dict of yaml contents
     '''
-    with open(yaml_file, 'r') as f:
+    with open(yaml_file, 'r') as yfile:
         yml = yaml.YAML(typ='safe')
-        return yml.load(f)
+        return yml.load(yfile)
 
 
 def write_yaml(yaml_file: str, data: dict) -> None:
@@ -44,20 +58,47 @@ def write_yaml(yaml_file: str, data: dict) -> None:
     yaml_file (str): path to yaml file
     data (dict): dict of data to write to `yaml_file`
     '''
-    with open(yaml_file, 'w') as f:
+    with open(yaml_file, 'w') as yfile:
         yml = yaml.YAML(typ='safe')
         yml.default_flow_style = False
-        yml.dump(data, f)
+        yml.dump(data, yfile)
 
 
 def read_label_config(path: str) -> str:
-    with open(path, 'r') as f:
-        return f.read()
+    ''' Read a label configuration file
+
+    Parameters:
+    path (str): path to the file containing a label configuration
+
+    Returns:
+    label configuration (str)
+    '''
+    with open(path, 'r') as label_config:
+        return label_config.read()
 
 
 def read_ls_tasks(path: str) -> List[dict]:
-    with open(path, 'r') as f:
-        return json.load(f)
+    ''' Read a label studio tasks file (json format)
+
+    Parameters:
+    path (str): path to the file containing a label studio tasks in json format
+
+    Returns:
+    tasks (List[dict])
+    '''
+    with open(path, 'r') as task_file:
+        return json.load(task_file)
+
+
+def write_ls_tasks(path: str, tasks: List[dict]) -> None:
+    ''' Write label-studio tasks to a file (json format)
+
+    Parameters:
+    path (str): path where the `tasks` should be written
+    tasks (List[dict]): label-studio tasks to write
+    '''
+    with open(path, 'w') as out_file:
+        json.dump(tasks, out_file, indent='\t')
 
 
 def backup_existing_file(origional_path: str) -> str:

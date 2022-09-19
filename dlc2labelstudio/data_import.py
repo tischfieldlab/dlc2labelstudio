@@ -12,7 +12,7 @@ from dlc2labelstudio.ls_client import (add_task_to_project, export_tasks,
                                        get_current_user_info, upload_data_file)
 
 
-def import_dlc_data(project: Project, dlc_config: dict, update: bool=False, filter: Optional[List[str]]=None) -> List[dict]:
+def import_dlc_data(project: Project, dlc_config: dict, update: bool=False, filter_patterns: Optional[List[str]]=None) -> List[dict]:
     ''' Import DLC project data into a label studio project
 
     Parameters:
@@ -30,8 +30,8 @@ def import_dlc_data(project: Project, dlc_config: dict, update: bool=False, filt
     print(f'Discovered {len(files_to_upload)} total images in the DLC Project')
 
 
-    if filter is not None:
-        files_to_upload = filter_dataset(files_to_upload, filter)
+    if filter_patterns is not None:
+        files_to_upload = filter_dataset(files_to_upload, filter_patterns)
         print(f' -> Filtering is active, {len(files_to_upload)} images remaining which matched filters.')
 
 
@@ -143,28 +143,39 @@ def get_files_from_task_data(task: dict):
     List[str] - paths that look like files
     '''
     files = []
-    for k, v in task['data'].items():
-        if isinstance(v, str):
-            files.append(v)
-        elif isinstance(v, list):
-            files.extend(v)
+    for value in task['data'].values():
+        if isinstance(value, str):
+            files.append(value)
+        elif isinstance(value, list):
+            files.extend(value)
         else:
-            raise ValueError(f'Warning: expected str or list[str] in task data, not {type(v)}!')
+            raise ValueError(f'Warning: expected str or list[str] in task data, not {type(value)}!')
 
     files = list(set(files))
-    files = list(filter(lambda f: os.path.exists(f), files))
+    files = list(filter(os.path.exists, files))
     return files
 
 
 def replace_dict_values(data: dict, search: str, replace: str) -> dict:
-    for k, v in data.items():
-        if isinstance(v, str) and v == search:
-            data[k] = replace
-        elif isinstance(v, list):
-            for vi, val in enumerate(v):
-                if val == search:
-                    data[k][vi] = replace
-        elif isinstance(v, dict):
-            data[k] = replace_dict_values(v, search, replace)
+    ''' Recursively search values in the dict `data` for `search` and replace with `replace`.
+    We search string values and list values in dict.
+
+    Parameters:
+    data (dict): dictionary to search
+    search (str): string to look for
+    replace (str): replacement value for `search`
+
+    Returns:
+    dict: dictionary with all instances of `search` replaced with `replace`
+    '''
+    for key, value in data.items():
+        if isinstance(value, str) and value == search:
+            data[key] = replace
+        elif isinstance(value, list):
+            for sub_val_idx, sub_val in enumerate(value):
+                if sub_val == search:
+                    data[key][sub_val_idx] = replace
+        elif isinstance(value, dict):
+            data[key] = replace_dict_values(value, search, replace)
 
     return data

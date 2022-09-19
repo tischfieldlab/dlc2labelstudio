@@ -1,8 +1,10 @@
-import math
+import itertools
 import os
 from typing import Dict, List, Optional, Union
 
+import numpy as np
 import pandas as pd
+from dlc2labelstudio.dlc_data import is_multianimal
 
 from dlc2labelstudio.io import backup_existing_file
 from dlc2labelstudio.ls_annot_parser import read_annotations
@@ -24,19 +26,36 @@ def convert_ls_annot_to_dlc(ls_annotations: List[dict], dlc_config: dict, split:
     Union[pd.DataFrame, Dict[str, pd.DataFrame]]: If split is True, will return a dict with string keys of the video name and keys
     as a Dataframe containing annotation data. If split is False, will return a DataFrame with all annotation data.
     '''
-    data = read_annotations(ls_annotations)#keypoint_names=dlc_config['bodyparts']
-
+    data = read_annotations(ls_annotations)
     if split:
         grouped = split_annotations_by_directory(data)
         grouped_dlc = {}
+        total_errors = 0
         for group, group_data in grouped.items():
-            dlc_df = intermediate_annotations_to_dlc(group_data, dlc_config)
+            dlc_df, num_errors = intermediate_annotations_to_dlc(group_data, dlc_config)
+            total_errors += num_errors
             grouped_dlc[group] = dlc_df
-            save_dlc_annots(dlc_df, dlc_config, group)
+
+        if total_errors > 0:
+            print('Several errors were detected while converting results to DLC format. Please correct the problems and try again!')
+            return None
+
+        # wait till we have all data frames, incase an exception, then save
+        if save:
+            for group, group_df in grouped_dlc.items():
+                save_dlc_annots(group_df, dlc_config, group)
+
         return grouped_dlc
     else:
-        dlc_df = intermediate_annotations_to_dlc(data, dlc_config)
-        save_dlc_annots(dlc_df, dlc_config)
+        dlc_df, num_errors = intermediate_annotations_to_dlc(data, dlc_config)
+
+        if num_errors > 0:
+            print('Several errors were detected while converting results to DLC format. Please correct the problems and try again!')
+            return None
+
+        if save:
+            save_dlc_annots(dlc_df, dlc_config)
+
         return dlc_df
 
 
@@ -73,10 +92,38 @@ def save_dlc_annots(annotations: pd.DataFrame, dlc_config: dict, group: Optional
 
     annotations.to_hdf(
         h5_dest,
-        "df_with_missing",
-        format="table",
+        key="df_with_missing",
         mode="w"
     )
+
+
+def make_index_from_dlc_config(dlc_config: dict) -> pd.MultiIndex:
+    ''' Given a DLC configuration, prepare a pandas multi-index
+
+    Parameters:
+    dlc_config (dict): DLC project configuration data
+    '''
+    if is_multianimal(dlc_config):
+        cols = []
+        for individual in dlc_config['individuals']:
+            for mabp in dlc_config['multianimalbodyparts']:
+                cols.append((dlc_config['scorer'], individual, mabp, 'x'))
+                cols.append((dlc_config['scorer'], individual, mabp, 'y'))
+        for unbp in dlc_config['uniquebodyparts']:
+            cols.append((dlc_config['scorer'], 'single', unbp, 'x'))
+            cols.append((dlc_config['scorer'], 'single', unbp, 'y'))
+
+        return pd.MultiIndex.from_tuples(cols, names=('scorer', 'individuals', 'bodyparts', 'coords'))
+
+    else:
+        return pd.MultiIndex.from_product(
+            [
+                [dlc_config['scorer']],
+                dlc_config['bodyparts'],
+                ['x', 'y']
+            ],
+            names=['scorer', 'bodyparts', 'coords'])
+
 
 
 def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_config: dict) -> pd.DataFrame:
@@ -89,33 +136,58 @@ def intermediate_annotations_to_dlc(intermediate_annotations: List[dict], dlc_co
     Returns:
     pd.DataFrame - dataframe of annotation data in DLC format
     '''
-    col_idx = pd.MultiIndex.from_product(
-        [
-            [dlc_config['scorer']],
-            dlc_config['bodyparts'],
-            ['x', 'y']
-        ],
-        names=['scorer', 'bodyparts', 'coords'])
+    is_ma = is_multianimal(dlc_config)
+    col_idx = make_index_from_dlc_config(dlc_config)
     row_idx = []
-    dlc_data = []
+    dlc_data = {idx_val: [] for idx_val in col_idx.values}
 
-    for itm in intermediate_annotations:
-        row_idx.append(itm['file_name'])
-        kpts = itm['annotations'][0]['keypoints']
 
-        row_data = []
-        for bp in dlc_config['bodyparts']:
-            if bp in kpts:
-                row_data.extend([
-                    kpts[bp]['x'],
-                    kpts[bp]['y'],
-                ])
+    keyfunc = lambda a: a['file_name']
+    sorted_annot = sorted(intermediate_annotations, key=keyfunc)
+    errors_found = 0
+    for group, annots in itertools.groupby(sorted_annot, key=keyfunc):
+        row_idx.append(tuple(group.replace(r'\\', '/').split('/')))
+        # fill across the board with None
+        for value in dlc_data.values():
+            value.append(np.nan)
+
+        for annot in annots:
+            if is_ma:
+                if annot['individual'] is None:
+                    # unique bodypart
+                    key = (dlc_config['scorer'], 'single', annot['bodypart'])
+                else:
+                    # multi animal bodypart
+                    key = (dlc_config['scorer'], annot['individual'], annot['bodypart'])
             else:
-                row_data.extend([math.nan, math.nan])
-        dlc_data.append(row_data)
-    dlc_df = pd.DataFrame(dlc_data, index=row_idx, columns=col_idx)
+                key = (dlc_config['scorer'], annot['bodypart'])
+            #print(annot['file_name'], key)
+            try:
+                dlc_data[(*key, 'x')][-1] = annot['x']
+                dlc_data[(*key, 'y')][-1] = annot['y']
+            except KeyError:
+                errors_found += 1
+                if annot['bodypart'] in dlc_config['multianimalbodyparts'] and annot['individual'] is None:
+                    rationale = 'bodypart is a multianimal bodypart, but no relationship to an individual was found!'
+                elif annot['bodypart'] in dlc_config['uniquebodyparts'] and annot['individual'] is not None:
+                    rationale = 'bodypart is a unique bodypart and should not have a relationship with an individual, but one was found'
+                else:
+                    rationale = 'Unknown'
 
-    return dlc_df
+                message = 'ERROR! Data seems to violate the DLC annotation schema!\n' \
+                         f' -> Task: {annot["task_id"]}\n' \
+                         f' -> Image: "{annot["file_name"]}"\n' \
+                         f' -> Bodypart: {annot["bodypart"]}\n'
+                if is_ma:
+                    message += f' -> Individual: {annot.get("individual", None)}\n'
+                message += f' -> Rationale: {rationale}\n'
+                print(message)
+
+    row_index = pd.MultiIndex.from_tuples(row_idx)
+
+    dlc_df = pd.DataFrame(dlc_data, index=row_index, columns=col_idx)
+
+    return dlc_df, errors_found
 
 
 def split_annotations_by_directory(intermediate_annotations: List[dict]) -> Dict[str, List[dict]]:
@@ -130,7 +202,8 @@ def split_annotations_by_directory(intermediate_annotations: List[dict]) -> Dict
     grouped = {}
 
     for annot in intermediate_annotations:
-        group = annot['file_name'].split(os.sep)[1]
+        path, _ = os.path.split(annot['file_name'])
+        _, group = os.path.split(path)
         if group not in grouped:
             grouped[group] = []
         grouped[group].append(annot)
