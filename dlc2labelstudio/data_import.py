@@ -7,7 +7,7 @@ from label_studio_sdk.project import Project
 
 from dlc2labelstudio.dlc_data import (collect_dataset, filter_dataset,
                                       load_dlc_annotations_for_image)
-from dlc2labelstudio.ls_annot_parser import pick_filenames_from_tasks
+from dlc2labelstudio.ls_annot_parser import pick_filenames_from_tasks, upgrade_task_definition
 from dlc2labelstudio.ls_client import (add_task_to_project, export_tasks,
                                        get_current_user_info, upload_data_file)
 
@@ -102,6 +102,8 @@ def import_generic_ls_tasks(project: Project, tasks: List[dict]):
     '''
     uploads = []
     for task in tqdm.tqdm(tasks, desc='Importing Tasks'):
+        task = upgrade_task_definition(task)
+        task = ensure_task_uploadable(task)
 
         uploadable_files = get_files_from_task_data(task)
         for fup in tqdm.tqdm(uploadable_files, desc='Uploading Files', leave=False):
@@ -113,6 +115,20 @@ def import_generic_ls_tasks(project: Project, tasks: List[dict]):
         add_task_to_project(project, task)
 
     return uploads
+
+
+def ensure_task_uploadable(task: dict):
+    task.pop('id', None)
+    for a in task['annotations']:
+        a.pop('id', None)
+        a.pop('created_at', None)
+        a.pop('lead_time', None)
+
+        for r in a['result']:
+            a.pop('id', None)
+
+    return task
+
 
 
 def get_files_from_task_data(task: dict):
