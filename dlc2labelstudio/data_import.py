@@ -119,13 +119,14 @@ def import_generic_ls_tasks(project: Project, tasks: List[dict]):
 
 def ensure_task_uploadable(task: dict):
     task.pop('id', None)
-    for a in task['annotations']:
-        a.pop('id', None)
-        a.pop('created_at', None)
-        a.pop('lead_time', None)
-
-        for r in a['result']:
+    if 'annotations' in task:
+        for a in task['annotations']:
             a.pop('id', None)
+            a.pop('created_at', None)
+            a.pop('lead_time', None)
+
+            for r in a['result']:
+                a.pop('id', None)
 
     return task
 

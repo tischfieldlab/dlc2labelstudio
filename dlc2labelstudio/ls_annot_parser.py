@@ -142,3 +142,10 @@ def pick_filenames_from_tasks(tasks: List[dict]) -> List[str]:
     '''
     annot = read_annotations(tasks)
     return [a['file_name'] for a in annot]
+
+
+def upgrade_task_definition(task: dict) -> dict:
+    if 'completions' in task:
+        task['annotations'] = task['completions']
+        task.pop('completions', None)
+    return task
