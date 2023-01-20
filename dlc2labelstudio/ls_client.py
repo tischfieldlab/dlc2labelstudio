@@ -175,4 +175,4 @@ def add_task_to_project(project: Project, task: dict) -> dict:
         json=task,
         params={'return_task_ids': True}
     )
-    response.json()
+    return response.json()
